@@ -1,0 +1,220 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# 1. Load Dataset
+df = pd.read_csv("/home/avcoe/wdbc.csv")
+
+print("First 5 rows:")
+print(df.head())
+
+print("\nDataset Shape:")
+print(df.shape)
+
+print("\nColumn Names:")
+print(df.columns)
+
+
+# 2. Separate Features and Target
+X = df.drop("diagnosis", axis=1)
+y = df["diagnosis"]
+
+print("\nNumber of features before PCA:", X.shape[1])
+
+print("\nOriginal Feature Names:")
+for i, feature in enumerate(X.columns, start=1):
+    print(f"{i}. {feature}")
+
+print("\nClass Distribution:")
+print(y.value_counts())
+
+print("\nM = Malignant")
+print("B = Benign")
+
+
+# 3. Split Dataset into Training and Testing Sets
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.20,random_state=42,stratify=y)
+
+print("\nTraining Samples:", X_train.shape[0])
+print("Testing Samples :", X_test.shape[0])
+
+
+# 4. Stadardize Features
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+# 5. Classification BEFORE PCA using SVM
+model_before = SVC(kernel="rbf",C=1.0,gamma="scale")
+
+model_before.fit(X_train_scaled, y_train)
+
+y_pred_before = model_before.predict(X_test_scaled)
+
+accuracy_before = accuracy_score(y_test, y_pred_before)
+
+print("\nClassification BEFORE PCA")
+print("Classifier         : SVM")
+print("Kernel             : RBF")
+print("Number of Features :", X_train_scaled.shape[1])
+print("Accuracy           :", round(accuracy_before, 4))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_before))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred_before))
+
+
+# 6. Apply PCA with 2 Components for Visualization
+
+scaler_visualization = StandardScaler()
+
+X_scaled_visualization = scaler_visualization.fit_transform(X)
+
+pca_2d = PCA(n_components=2)
+
+X_pca_2d = pca_2d.fit_transform(X_scaled_visualization)
+
+print("\nPCA for 2D Visualization")
+
+print("Original Number of Features:", X.shape[1])
+print("Reduced Number of Features :", X_pca_2d.shape[1])
+
+print("\nExplained Variance Ratio:")
+
+print("PC1:",round(pca_2d.explained_variance_ratio_[0], 4))
+
+print("PC2:",round(pca_2d.explained_variance_ratio_[1], 4))
+
+print("Total Variance Explained by PC1 and PC2:",round(np.sum(pca_2d.explained_variance_ratio_), 4))
+
+
+# 7. PCA Visualization
+plt.figure(figsize=(8, 6))
+
+label_names = {"M": "Malignant","B": "Benign"}
+
+for label in y.unique():
+    plt.scatter(
+        X_pca_2d[y == label, 0],
+        X_pca_2d[y == label, 1],
+        label=label_names[label],
+        alpha=0.7
+    )
+
+plt.xlabel("PC 1")
+plt.ylabel("PC 2")
+plt.title("PCA Visualization of WDBC")
+plt.legend(title="Diagnosis")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+# 8. PCA for Classification
+pca = PCA(n_components=0.95)
+
+X_train_pca = pca.fit_transform(X_train_scaled)
+X_test_pca = pca.transform(X_test_scaled)
+
+number_of_pca_features = X_train_pca.shape[1]
+
+print("\nPCA for Classification")
+
+print("Number of Features Before PCA:",X_train_scaled.shape[1])
+
+print("Number of Features After PCA :",number_of_pca_features)
+
+print("Total Explained Variance:",round(np.sum(pca.explained_variance_ratio_),4))
+
+
+# 9. Display PCA Feature Names
+
+pca_feature_names = [
+    f"PC{i + 1}"
+    for i in range(number_of_pca_features)
+]
+
+print("\nFeatures After PCA:")
+
+for i, feature in enumerate(pca_feature_names, start=1):
+    print(f"{i}. {feature}")
+
+
+# 10. Display Variance Explained by Each PCA Component
+
+print("\nVariance Explained by Each PCA Component:")
+
+for i, variance in enumerate(
+    pca.explained_variance_ratio_,
+    start=1
+):
+    print(f"PC{i}: {variance:.4f} "f"({variance * 100:.2f}%)")
+
+
+# 11. Classification AFTER PCA using SVM
+model_after = SVC(kernel="rbf",C=1.0,gamma="scale")
+
+model_after.fit(X_train_pca, y_train)
+
+y_pred_after = model_after.predict(X_test_pca)
+
+accuracy_after = accuracy_score(y_test, y_pred_after)
+
+print("\nClassification AFTER PCA")
+
+print("Classifier              : SVM")
+print("Kernel                  : RBF")
+print("Number of PCA Features  :", number_of_pca_features)
+print("Accuracy                :", round(accuracy_after, 4))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_after))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred_after))
+
+
+# 12. Final Comparison
+difference = accuracy_after - accuracy_before
+
+print("\nFinal Comparison")
+
+print("Original Features   :", X.shape[1])
+print("Features After PCA  :", number_of_pca_features)
+
+print("Accuracy Before PCA :",round(accuracy_before, 4))
+
+print("Accuracy After PCA  :",round(accuracy_after, 4))
+
+print("Accuracy Difference :",round(difference, 4))
+
+
+# 13. Accuracy Comparison Bar Chart
+
+methods = ["Before PCA", "After PCA"]
+accuracies = [accuracy_before, accuracy_after]
+
+plt.figure(figsize=(6, 5))
+
+bars = plt.bar(methods, accuracies)
+
+plt.ylabel("Accuracy")
+plt.title("SVM Classification Accuracy Before and After PCA")
+plt.ylim(0.90, 1.0)
+
+for bar, accuracy in zip(bars, accuracies):
+    plt.text(
+        bar.get_x() + bar.get_width() / 2,
+        accuracy + 0.002,
+        f"{accuracy:.4f}",
+        ha="center"
+    )

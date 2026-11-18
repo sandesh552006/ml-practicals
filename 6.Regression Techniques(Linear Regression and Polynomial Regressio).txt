@@ -1,0 +1,228 @@
+import pandas as pd
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
+
+from sklearn.metrics import (mean_squared_error,mean_absolute_error,r2_score)
+
+# Load dataset
+
+data = pd.read_csv("/home/avcoe/Housing.csv")
+
+print("Dataset loaded successfully.")
+
+# Display dataset information
+
+print("\nDataset shape:")
+print(data.shape)
+
+print("\nFirst 5 rows:")
+print(data.head())
+
+print("\nColumn names:")
+print(data.columns.tolist())
+
+print("\nData types:")
+print(data.dtypes)
+
+print("\nMissing values in original dataset:")
+print(data.isnull().sum())
+
+# Define target column
+
+TARGET_COLUMN = "price"
+
+if TARGET_COLUMN not in data.columns:
+    raise ValueError(
+        f"Target column '{TARGET_COLUMN}' not found.\n"
+        f"Available columns are:\n"
+        f"{data.columns.tolist()}"
+    )
+
+# Separate input features and target
+
+X = data.drop(columns=[TARGET_COLUMN])
+
+y = data[TARGET_COLUMN]
+
+print("\nInput shape:")
+print(X.shape)
+
+print("\nTarget shape:")
+print(y.shape)
+
+# Identify numerical and categorical features
+
+numeric_columns = X.select_dtypes(include=["number"]).columns
+
+categorical_columns = X.select_dtypes(include=["object","category"]).columns
+
+print("\nNumerical columns:")
+print(numeric_columns.tolist())
+
+print("\nCategorical columns:")
+print(categorical_columns.tolist())
+
+# Handle missing numerical values
+
+X[numeric_columns] = X[numeric_columns].fillna(X[numeric_columns].median())
+
+# Handle missing categorical values
+
+for column in categorical_columns:
+
+    if X[column].isnull().any():
+
+       X[column] = X[column].fillna(X[column].mode()[0])
+
+# Convert categorical columns to numeric
+
+X = pd.get_dummies(X,columns=categorical_columns,drop_first=False,dtype=int)
+
+print("\nColumns after categorical encoding:")
+print(X.columns.tolist())
+
+print("\nInput data types after encoding:")
+print(X.dtypes)
+
+# Check for missing values
+
+print("\nMissing values after preprocessing:")
+print(X.isnull().sum())
+
+print("\nTotal missing input values:",X.isnull().sum().sum())
+
+print("Missing target values:",y.isnull().sum())
+
+# Train-test split
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.20,random_state=42)
+
+print("\nTraining samples:")
+print(len(X_train))
+
+print("\nTesting samples:")
+print(len(X_test))
+
+print("\nNumber of input features after encoding:",X.shape[1])
+
+# Linear Regression
+
+linear_model = LinearRegression()
+
+linear_model.fit(X_train,y_train)
+
+linear_predictions = linear_model.predict(X_test)
+
+# Linear Regression metrics
+
+linear_mse = mean_squared_error(y_test,linear_predictions)
+
+linear_mae = mean_absolute_error(y_test,linear_predictions)
+
+linear_r2 = r2_score(y_test,linear_predictions)
+
+print("\nLINEAR REGRESSION")
+
+print(f"Mean Squared Error (MSE) : "f"{linear_mse:.6f}")
+
+print(f"Mean Absolute Error (MAE): "f"{linear_mae:.6f}")
+
+print(f"R² Score                 : "f"{linear_r2:.6f}")
+
+# Polynomial Regression
+
+polynomial_model = Pipeline(
+    [
+        (
+            "polynomial_features",
+            PolynomialFeatures(degree=2,include_bias=False)
+        ),
+        (
+            "scaler",
+            StandardScaler()
+        ),
+        (
+            "linear_regression",
+            LinearRegression()
+        )
+    ]
+)
+
+# Train polynomial model
+
+polynomial_model.fit(X_train,y_train)
+
+# Polynomial prediction
+
+polynomial_predictions = polynomial_model.predict(X_test)
+
+# Polynomial Regression metrics
+
+polynomial_mse = mean_squared_error(y_test,polynomial_predictions)
+
+polynomial_mae = mean_absolute_error(y_test,polynomial_predictions)
+
+polynomial_r2 = r2_score(y_test,polynomial_predictions)
+
+print("\nPOLYNOMIAL REGRESSION")
+
+print(f"Mean Squared Error (MSE) : "f"{polynomial_mse:.6f}")
+
+print(f"Mean Absolute Error (MAE): "f"{polynomial_mae:.6f}")
+
+print(f"R² Score                 : "f"{polynomial_r2:.6f}")
+
+# Display sample predictions
+
+results = pd.DataFrame(
+    {
+
+        "Actual Price":
+            y_test.values[:10],
+
+        "Linear Prediction":
+            linear_predictions[:10],
+
+        "Polynomial Prediction":
+            polynomial_predictions[:10]
+
+    }
+)
+
+print("\nSAMPLE PREDICTIONS")
+
+print(results.to_string(index=False))
+
+# Model comparison
+
+comparison = pd.DataFrame(
+    {
+
+        "Model": [
+            "Linear Regression",
+            "Polynomial Regression"
+        ],
+
+        "MSE": [
+            linear_mse,
+            polynomial_mse
+        ],
+
+        "MAE": [
+            linear_mae,
+            polynomial_mae
+        ],
+
+        "R2": [
+            linear_r2,
+            polynomial_r2
+        ]
+
+    }
+)
+
+print("\nMODEL COMPARISON")
+print(comparison.to_string(index=False))
